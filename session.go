@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"hash"
 
+	"slices"
+
 	"github.com/aead/cmac"
 	"github.com/pion/dtls/v2/pkg/crypto/ccm"
 	"github.com/tomasz-szyszko/go-smb2/internal/erref"
@@ -81,10 +83,9 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	}
 
 	s := &session{
-		conn:           conn,
-		treeConnTables: make(map[uint32]*treeConn),
-		sessionFlags:   sessionFlags,
-		sessionId:      p.SessionId(),
+		conn:         conn,
+		sessionFlags: sessionFlags,
+		sessionId:    p.SessionId(),
 	}
 
 	switch conn.dialect {
@@ -278,7 +279,6 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 
 type session struct {
 	*conn
-	treeConnTables            map[uint32]*treeConn
 	sessionFlags              uint16
 	sessionId                 uint64
 	preauthIntegrityHashValue [64]byte
@@ -370,7 +370,7 @@ func (s *session) sign(pkt []byte) []byte {
 func (s *session) verify(pkt []byte) (ok bool) {
 	p := smb2.PacketCodec(pkt)
 
-	signature := append([]byte{}, p.Signature()...)
+	signature := slices.Clone(p.Signature())
 
 	p.SetSignature(zero[:])
 
