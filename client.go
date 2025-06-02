@@ -736,10 +736,8 @@ func (fs *Share) Lstat(name string) (os.FileInfo, error) {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
 
-	fi, err := f.fileStat, nil
-	if e := f.close(); err == nil {
-		err = e
-	}
+	fi := f.fileStat
+	err = f.close()
 	if err != nil {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
@@ -771,10 +769,8 @@ func (fs *Share) Stat(name string) (os.FileInfo, error) {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
 
-	fi, err := f.fileStat, nil
-	if e := f.close(); err == nil {
-		err = e
-	}
+	fi := f.fileStat
+	err = f.close()
 	if err != nil {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}

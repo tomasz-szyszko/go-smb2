@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/tomasz-szyszko/go-smb2/internal/crypto/ccm"
-	"github.com/tomasz-szyszko/go-smb2/internal/crypto/cmac"
+	"github.com/aead/cmac"
+	"github.com/pion/dtls/v2/pkg/crypto/ccm"
 	"github.com/tomasz-szyszko/go-smb2/internal/erref"
 	"github.com/tomasz-szyszko/go-smb2/internal/smb2"
 )
@@ -141,8 +141,16 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.signer = cmac.New(ciph)
-			s.verifier = cmac.New(ciph)
+
+			s.signer, err = cmac.New(ciph)
+			if err != nil {
+				return nil, &InternalError{err.Error()}
+			}
+
+			s.verifier, err = cmac.New(ciph)
+			if err != nil {
+				return nil, &InternalError{err.Error()}
+			}
 
 			// s.applicationKey = kdf(sessionKey, []byte("SMB2APP\x00"), []byte("SmbRpc\x00"))
 
@@ -153,7 +161,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.encrypter, err = ccm.NewCCMWithNonceAndTagSizes(ciph, 11, 16)
+			s.encrypter, err = ccm.NewCCM(ciph, 11, 16)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
@@ -162,7 +170,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.decrypter, err = ccm.NewCCMWithNonceAndTagSizes(ciph, 11, 16)
+			s.decrypter, err = ccm.NewCCM(ciph, 11, 16)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
@@ -182,8 +190,16 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.signer = cmac.New(ciph)
-			s.verifier = cmac.New(ciph)
+
+			s.signer, err = cmac.New(ciph)
+			if err != nil {
+				return nil, &InternalError{err.Error()}
+			}
+
+			s.verifier, err = cmac.New(ciph)
+			if err != nil {
+				return nil, &InternalError{err.Error()}
+			}
 
 			// s.applicationKey = kdf(sessionKey, []byte("SMBAppKey\x00"), preauthIntegrityHashValue)
 
@@ -196,7 +212,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
-				s.encrypter, err = ccm.NewCCMWithNonceAndTagSizes(ciph, 11, 16)
+				s.encrypter, err = ccm.NewCCM(ciph, 11, 16)
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
@@ -205,7 +221,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
-				s.decrypter, err = ccm.NewCCMWithNonceAndTagSizes(ciph, 11, 16)
+				s.decrypter, err = ccm.NewCCM(ciph, 11, 16)
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
