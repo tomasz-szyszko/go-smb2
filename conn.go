@@ -34,7 +34,7 @@ func (n *Negotiator) makeRequest() (*smb2.NegotiateRequest, error) {
 	}
 
 	if n.DisableEncryption {
-		req.Capabilities &^= smb2.SMB2_GLOBAL_CAP_ENCRYPTION
+		req.Capabilities = clientCapabilitiesNoEncryption
 	}
 
 	if n.ClientGuid == zero {
@@ -441,7 +441,6 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 	}
 
 	conn.outstandingRequests.set(msgId, rr)
-
 	return rr, nil
 }
 
@@ -454,7 +453,6 @@ func (conn *conn) recv(rr *requestResponse) ([]byte, error) {
 		return pkt, nil
 	case <-rr.ctx.Done():
 		conn.outstandingRequests.pop(rr.msgId)
-
 		return nil, rr.ctx.Err()
 	}
 }
@@ -466,7 +464,6 @@ func (conn *conn) runSender() {
 			return
 		case pkt := <-conn.write:
 			_, err := conn.t.Write(pkt)
-
 			conn.werr <- err
 		}
 	}
@@ -560,7 +557,7 @@ func (conn *conn) runReciever() {
 
 	select {
 	case <-conn.rdone:
-		err = nil
+		err = &InternalError{"connection closed"}
 	default:
 		logger.Println("error:", err)
 	}
