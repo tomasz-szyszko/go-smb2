@@ -469,26 +469,48 @@ func (conn *conn) runSender() {
 	}
 }
 
-func (conn *conn) runReciever() {
-	var err error
+type readPacket struct {
+	pkt []byte
+	err error
+}
 
+func (conn *conn) readTransport(channel chan readPacket) {
 	for {
 		n, e := conn.t.ReadSize()
 		if e != nil {
-			err = &TransportError{e}
-			break
+			channel <- readPacket{err: &TransportError{e}}
+			return
 		}
 
 		pkt := make([]byte, n)
 
 		_, e = conn.t.Read(pkt)
 		if e != nil {
-			err = &TransportError{e}
+			channel <- readPacket{err: &TransportError{e}}
+			return
+		}
+
+		channel <- readPacket{pkt: pkt}
+	}
+
+}
+
+func (conn *conn) runReciever() {
+	var channelError error
+	readChannel := make(chan readPacket, 5)
+	go conn.readTransport(readChannel)
+
+	for {
+		readPacket := <-readChannel
+		if readPacket.err != nil {
+			channelError = readPacket.err
 			break
 		}
 
+		var e error
 		var isEncrypted bool
 		hasSession := conn.useSession()
+		pkt := readPacket.pkt
 		if hasSession {
 			pkt, e, isEncrypted = conn.tryDecrypt(pkt)
 			if e != nil {
@@ -557,16 +579,16 @@ func (conn *conn) runReciever() {
 
 	select {
 	case <-conn.rdone:
-		err = &InternalError{"connection closed"}
+		channelError = &InternalError{"connection closed"}
 	default:
-		logger.Println("error:", err)
+		logger.Println("error:", channelError)
 	}
 
 	conn.m.Lock()
 	defer conn.m.Unlock()
 
-	conn.outstandingRequests.shutdown(err)
-	conn.err = err
+	conn.outstandingRequests.shutdown(channelError)
+	conn.err = channelError
 	close(conn.wdone)
 }
 
