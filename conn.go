@@ -321,21 +321,6 @@ func (conn *conn) enableSession() {
 	atomic.StoreInt32(&conn._useSession, 1)
 }
 
-//nolint:unused // appears to be legacy, unsure, so leaving for now
-func (conn *conn) sendRecv(cmd uint16, req smb2.Packet, ctx context.Context) (res []byte, err error) {
-	rr, err := conn.send(req, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	pkt, err := conn.recv(rr)
-	if err != nil {
-		return nil, err
-	}
-
-	return accept(cmd, pkt)
-}
-
 func (conn *conn) loanCredit(payloadSize int, ctx context.Context) (creditCharge uint16, grantedPayloadSize int, err error) {
 	if conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		creditCharge = 1
@@ -514,30 +499,30 @@ func (conn *conn) runReciever() {
 			goto exit
 		}
 
-		hasSession := conn.useSession()
-
 		var isEncrypted bool
-
+		hasSession := conn.useSession()
 		if hasSession {
 			pkt, e, isEncrypted = conn.tryDecrypt(pkt)
 			if e != nil {
 				logger.Println("skip:", e)
-
 				continue
 			}
 
 			p := smb2.PacketCodec(pkt)
+			if p.IsInvalid() {
+				logger.Println("skip:", &InvalidResponseError{"broken packet header format"})
+				continue
+			}
+
 			if s := conn.session; s != nil {
 				if s.sessionId != p.SessionId() {
 					logger.Println("skip:", &InvalidResponseError{"unknown session id"})
-
 					continue
 				}
 
 				if tc, ok := s.treeConnTables[p.TreeId()]; ok {
 					if tc.treeId != p.TreeId() {
 						logger.Println("skip:", &InvalidResponseError{"unknown tree id"})
-
 						continue
 					}
 				}
@@ -548,11 +533,21 @@ func (conn *conn) runReciever() {
 
 		for {
 			p := smb2.PacketCodec(pkt)
+			if p.IsInvalid() {
+				logger.Println("skip:", &InvalidResponseError{"broken packet header format"})
+				break
+			}
 
-			if off := p.NextCommand(); off != 0 {
+			if off := p.NextCommand(); off != 0 && int(off) < len(pkt) {
 				pkt, next = pkt[:off], pkt[off:]
 			} else {
 				next = nil
+			}
+
+			p = smb2.PacketCodec(pkt)
+			if p.IsInvalid() {
+				logger.Println("skip:", &InvalidResponseError{"broken packet header format"})
+				break
 			}
 
 			if hasSession {
@@ -607,6 +602,8 @@ func accept(cmd uint16, pkt []byte) (res []byte, err error) {
 		return nil, os.ErrNotExist
 	case erref.STATUS_ACCESS_DENIED, erref.STATUS_CANNOT_DELETE:
 		return nil, os.ErrPermission
+	case erref.STATUS_NO_MORE_FILES:
+		return nil, &ResponseError{Code: uint32(status)}
 	}
 
 	switch cmd {
@@ -714,7 +711,7 @@ func (conn *conn) tryVerify(pkt []byte, isEncrypted bool) error {
 				}
 			}
 		} else {
-			if conn.requireSigning && !isEncrypted {
+			if conn.requireSigning && !isEncrypted && erref.NtStatus(p.Status()) != erref.STATUS_PENDING {
 				if conn.session != nil {
 					if conn.session.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
 						if conn.session.sessionId == p.SessionId() {
