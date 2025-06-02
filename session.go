@@ -161,7 +161,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.encrypter, err = ccm.NewCCM(ciph, 11, 16)
+			s.encrypter, err = ccm.NewCCM(ciph, 16, 12)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
@@ -170,7 +170,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.decrypter, err = ccm.NewCCM(ciph, 11, 16)
+			s.decrypter, err = ccm.NewCCM(ciph, 16, 12)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
@@ -212,7 +212,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
-				s.encrypter, err = ccm.NewCCM(ciph, 11, 16)
+				s.encrypter, err = ccm.NewCCM(ciph, 16, 12)
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
@@ -221,7 +221,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
-				s.decrypter, err = ccm.NewCCM(ciph, 11, 16)
+				s.decrypter, err = ccm.NewCCM(ciph, 16, 12)
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
@@ -344,7 +344,11 @@ func (s *session) recv(rr *requestResponse) (pkt []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if sessionId := smb2.PacketCodec(pkt).SessionId(); sessionId != s.sessionId {
+	p := smb2.PacketCodec(pkt)
+	if p.IsInvalid() {
+		return nil, &InvalidResponseError{"broken packet format"}
+	}
+	if sessionId := p.SessionId(); sessionId != s.sessionId {
 		return nil, &InvalidResponseError{fmt.Sprintf("expected session id: %v, got %v", s.sessionId, sessionId)}
 	}
 	return pkt, err
