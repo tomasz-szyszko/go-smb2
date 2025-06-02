@@ -1361,7 +1361,7 @@ func (f *File) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-const winMaxPayloadSize = 8 * 1024 * 1024
+const winMaxPayloadSize = 1 * 512 * 1024
 const singleCreditMaxPayloadSize = 64 * 1024
 
 func (f *File) maxReadSize() int {
