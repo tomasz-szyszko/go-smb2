@@ -359,6 +359,7 @@ func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (
 		return nil, conn.err
 	}
 
+	conn.outstandingRequests.set(rr.msgId, rr)
 	select {
 	case conn.write <- rr.pkt:
 		select {
@@ -383,18 +384,19 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 	hdr := req.Header()
 
 	var msgId uint64
+	creditCharge := uint64(hdr.CreditCharge)
 
 	if _, ok := req.(*smb2.CancelRequest); !ok {
-		creditCharge := hdr.CreditCharge
 
-		msgId = conn.sequenceWindow.Add(uint64(creditCharge))
+		msgId = conn.sequenceWindow.Add(creditCharge)
 		if hdr.CreditRequestResponse == 0 {
-			hdr.CreditRequestResponse = creditCharge
+			hdr.CreditRequestResponse = uint16(creditCharge)
 		}
 
 		hdr.CreditRequestResponse += conn.account.opening()
 	}
 
+	msgId -= creditCharge
 	hdr.MessageId = msgId
 
 	s := conn.session
@@ -434,7 +436,6 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 		recv:          make(chan []byte, 1),
 	}
 
-	conn.outstandingRequests.set(msgId, rr)
 	return rr, nil
 }
 
