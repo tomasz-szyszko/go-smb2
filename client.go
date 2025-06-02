@@ -1361,44 +1361,29 @@ func (f *File) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-const winMaxPayloadSize = 1024 * 1024 // windows system don't accept more than 1M bytes request even though they tell us maxXXXSize > 1M
+const winMaxPayloadSize = 8 * 1024 * 1024
 const singleCreditMaxPayloadSize = 64 * 1024
 
 func (f *File) maxReadSize() int {
-	size := int(f.fs.maxReadSize)
-	if size > winMaxPayloadSize {
-		size = winMaxPayloadSize
-	}
+	size := min(int(f.fs.maxReadSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
-		if size > singleCreditMaxPayloadSize {
-			size = singleCreditMaxPayloadSize
-		}
+		size = min(int(f.fs.maxReadSize), singleCreditMaxPayloadSize)
 	}
 	return size
 }
 
 func (f *File) maxWriteSize() int {
-	size := int(f.fs.maxWriteSize)
-	if size > winMaxPayloadSize {
-		size = winMaxPayloadSize
-	}
+	size := min(int(f.fs.maxWriteSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
-		if size > singleCreditMaxPayloadSize {
-			size = singleCreditMaxPayloadSize
-		}
+		size = min(int(f.fs.maxWriteSize), singleCreditMaxPayloadSize)
 	}
 	return size
 }
 
 func (f *File) maxTransactSize() int {
-	size := int(f.fs.maxTransactSize)
-	if size > winMaxPayloadSize {
-		size = winMaxPayloadSize
-	}
+	size := min(int(f.fs.maxTransactSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
-		if size > singleCreditMaxPayloadSize {
-			size = singleCreditMaxPayloadSize
-		}
+		size = min(int(f.fs.maxTransactSize), singleCreditMaxPayloadSize)
 	}
 	return size
 }
@@ -1414,22 +1399,8 @@ func (f *File) readAt(b []byte, off int64) (n int, err error) {
 		switch {
 		case len(b)-n == 0:
 			return n, nil
-		case len(b)-n <= maxReadSize:
-			bs, isEOF, err := f.readAtChunk(len(b)-n, int64(n)+off)
-			if err != nil {
-				if err, ok := err.(*ResponseError); ok && erref.NtStatus(err.Code) == erref.STATUS_END_OF_FILE && n != 0 {
-					return n, nil
-				}
-				return 0, err
-			}
-
-			n += copy(b[n:], bs)
-
-			if isEOF {
-				return n, nil
-			}
 		default:
-			bs, isEOF, err := f.readAtChunk(maxReadSize, int64(n)+off)
+			bs, isEOF, err := f.readAtChunk(min(maxReadSize, len(b)-n), int64(n)+off)
 			if err != nil {
 				if err, ok := err.(*ResponseError); ok && erref.NtStatus(err.Code) == erref.STATUS_END_OF_FILE && n != 0 {
 					return n, nil
@@ -1868,15 +1839,8 @@ func (f *File) writeAt(b []byte, off int64) (n int, err error) {
 		switch {
 		case len(b)-n == 0:
 			return n, nil
-		case len(b)-n <= maxWriteSize:
-			m, err := f.writeAtChunk(b[n:], int64(n)+off)
-			if err != nil {
-				return 0, err
-			}
-
-			n += m
 		default:
-			m, err := f.writeAtChunk(b[n:n+maxWriteSize], int64(n)+off)
+			m, err := f.writeAtChunk(b[n:n+min(len(b)-n, maxWriteSize)], int64(n)+off)
 			if err != nil {
 				return 0, err
 			}
@@ -2080,11 +2044,7 @@ func (f *File) ReadFrom(r io.Reader) (n int64, err error) {
 			return n, err
 		}
 
-		maxBufferSize := f.maxReadSize()
-		if maxWriteSize := f.maxWriteSize(); maxWriteSize < maxBufferSize {
-			maxBufferSize = maxWriteSize
-		}
-
+		maxBufferSize := min(f.maxReadSize(), f.maxWriteSize())
 		return copyBuffer(r, f, make([]byte, maxBufferSize))
 	}
 
@@ -2100,11 +2060,7 @@ func (f *File) WriteTo(w io.Writer) (n int64, err error) {
 			return n, err
 		}
 
-		maxBufferSize := f.maxReadSize()
-		if maxWriteSize := f.maxWriteSize(); maxWriteSize < maxBufferSize {
-			maxBufferSize = maxWriteSize
-		}
-
+		maxBufferSize := min(f.maxReadSize(), f.maxWriteSize())
 		return copyBuffer(f, w, make([]byte, maxBufferSize))
 	}
 
@@ -2123,10 +2079,7 @@ func (f *File) encodeSize(e smb2.Encoder) int {
 }
 
 func (f *File) ioctl(req *smb2.IoctlRequest) (output []byte, err error) {
-	payloadSize := f.encodeSize(req.Input) + int(req.OutputCount)
-	if payloadSize < int(req.MaxOutputResponse+req.MaxInputResponse) {
-		payloadSize = int(req.MaxOutputResponse + req.MaxInputResponse)
-	}
+	payloadSize := max(f.encodeSize(req.Input)+int(req.OutputCount), int(req.MaxOutputResponse+req.MaxInputResponse))
 
 	if f.maxTransactSize() < payloadSize {
 		return nil, &InternalError{fmt.Sprintf("payload size %d exceeds max transact size %d", payloadSize, f.maxTransactSize())}
@@ -2232,10 +2185,7 @@ func (f *File) readdir(pattern string) (fi []os.FileInfo, err error) {
 }
 
 func (f *File) queryInfo(req *smb2.QueryInfoRequest) (infoBytes []byte, err error) {
-	payloadSize := f.encodeSize(req.Input)
-	if payloadSize < int(req.OutputBufferLength) {
-		payloadSize = int(req.OutputBufferLength)
-	}
+	payloadSize := max(f.encodeSize(req.Input), int(req.OutputBufferLength))
 
 	if f.maxTransactSize() < payloadSize {
 		return nil, &InternalError{fmt.Sprintf("payload size %d exceeds max transact size %d", payloadSize, f.maxTransactSize())}
