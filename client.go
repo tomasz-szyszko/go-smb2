@@ -1361,8 +1361,7 @@ func (f *File) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-const winMaxPayloadSize = 4 * 1024 * 1024
-const winMaxTransactSize = 512 * 1024
+const winMaxPayloadSize = 512 * 1024
 const singleCreditMaxPayloadSize = 64 * 1024
 
 func (f *File) maxReadSize() int {
@@ -1382,7 +1381,7 @@ func (f *File) maxWriteSize() int {
 }
 
 func (f *File) maxTransactSize() int {
-	size := min(int(f.fs.maxTransactSize), winMaxTransactSize)
+	size := min(int(f.fs.maxTransactSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		size = min(int(f.fs.maxTransactSize), singleCreditMaxPayloadSize)
 	}
