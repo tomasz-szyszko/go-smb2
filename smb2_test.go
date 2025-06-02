@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudsoda/go-smb2"
 	"github.com/stretchr/testify/require"
+	"github.com/tomasz-szyszko/go-smb2"
 )
 
 func join(ss ...string) string {

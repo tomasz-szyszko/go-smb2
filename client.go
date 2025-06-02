@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudsoda/go-smb2/internal/erref"
-	"github.com/cloudsoda/go-smb2/internal/msrpc"
-	"github.com/cloudsoda/go-smb2/internal/smb2"
-	"github.com/cloudsoda/go-smb2/internal/utf16le"
 	"github.com/cloudsoda/sddl"
+	"github.com/tomasz-szyszko/go-smb2/internal/erref"
+	"github.com/tomasz-szyszko/go-smb2/internal/msrpc"
+	"github.com/tomasz-szyszko/go-smb2/internal/smb2"
+	"github.com/tomasz-szyszko/go-smb2/internal/utf16le"
 )
 
 // SecurityInformationRequestFlags the data that is expected to be returned in Security Information
