@@ -137,7 +137,7 @@ retry:
 	conn.maxTransactSize = r.MaxTransactSize()
 	conn.maxReadSize = r.MaxReadSize()
 	conn.maxWriteSize = r.MaxWriteSize()
-	conn.sequenceWindow.Store(1)
+	conn.sequenceWindow = 1
 
 	// conn.gssNegotiateToken = r.SecurityBuffer()
 	// conn.clientGuid = n.ClientGuid
@@ -277,7 +277,7 @@ type conn struct {
 
 	session                   *session
 	outstandingRequests       *outstandingRequests
-	sequenceWindow            atomic.Uint64
+	sequenceWindow            uint64
 	dialect                   uint16
 	maxTransactSize           uint32
 	maxReadSize               uint32
@@ -341,6 +341,13 @@ func (conn *conn) send(req smb2.Packet, ctx context.Context) (rr *requestRespons
 }
 
 func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (rr *requestResponse, err error) {
+	conn.m.Lock()
+	defer conn.m.Unlock()
+
+	if conn.err != nil {
+		return nil, conn.err
+	}
+
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -353,27 +360,23 @@ func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (
 		return nil, err
 	}
 
-	conn.m.Lock()
-	defer conn.m.Unlock()
-	if conn.err != nil {
-		return nil, conn.err
-	}
-
-	conn.outstandingRequests.set(rr.msgId, rr)
 	select {
 	case conn.write <- rr.pkt:
 		select {
 		case err = <-conn.werr:
 			if err != nil {
 				conn.outstandingRequests.pop(rr.msgId)
+
 				return nil, &TransportError{err}
 			}
 		case <-ctx.Done():
 			conn.outstandingRequests.pop(rr.msgId)
+
 			return nil, ctx.Err()
 		}
 	case <-ctx.Done():
 		conn.outstandingRequests.pop(rr.msgId)
+
 		return nil, ctx.Err()
 	}
 
@@ -384,19 +387,20 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 	hdr := req.Header()
 
 	var msgId uint64
-	creditCharge := uint64(hdr.CreditCharge)
 
 	if _, ok := req.(*smb2.CancelRequest); !ok {
+		msgId = conn.sequenceWindow
 
-		msgId = conn.sequenceWindow.Add(creditCharge)
+		creditCharge := hdr.CreditCharge
+
+		conn.sequenceWindow += uint64(creditCharge)
 		if hdr.CreditRequestResponse == 0 {
-			hdr.CreditRequestResponse = uint16(creditCharge)
+			hdr.CreditRequestResponse = creditCharge
 		}
 
 		hdr.CreditRequestResponse += conn.account.opening()
 	}
 
-	msgId -= creditCharge
 	hdr.MessageId = msgId
 
 	s := conn.session
@@ -436,6 +440,7 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 		recv:          make(chan []byte, 1),
 	}
 
+	conn.outstandingRequests.set(msgId, rr)
 	return rr, nil
 }
 
@@ -563,7 +568,7 @@ func (conn *conn) runReciever() {
 			break
 		}
 
-		go conn.processReadPacket(readPacket.pkt)
+		conn.processReadPacket(readPacket.pkt)
 	}
 
 	select {
