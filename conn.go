@@ -366,17 +366,14 @@ func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (
 		case err = <-conn.werr:
 			if err != nil {
 				conn.outstandingRequests.pop(rr.msgId)
-
 				return nil, &TransportError{err}
 			}
 		case <-ctx.Done():
 			conn.outstandingRequests.pop(rr.msgId)
-
 			return nil, ctx.Err()
 		}
 	case <-ctx.Done():
 		conn.outstandingRequests.pop(rr.msgId)
-
 		return nil, ctx.Err()
 	}
 
@@ -425,7 +422,7 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 					return nil, &InternalError{err.Error()}
 				}
 			} else {
-				if s.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
+				if s.requireSigning && s.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
 					pkt = s.sign(pkt)
 				}
 			}
@@ -706,10 +703,9 @@ func (conn *conn) tryVerify(pkt []byte, isEncrypted bool) error {
 		if p.Flags()&smb2.SMB2_FLAGS_SIGNED != 0 {
 			if conn.session == nil || conn.session.sessionId != p.SessionId() {
 				return &InvalidResponseError{"unknown session id returned"}
-			} else {
-				if !conn.session.verify(pkt) {
-					return &InvalidResponseError{"unverified packet returned"}
-				}
+			}
+			if !conn.session.verify(pkt) {
+				return &InvalidResponseError{"unverified packet returned"}
 			}
 		} else {
 			if conn.requireSigning && !isEncrypted && erref.NtStatus(p.Status()) != erref.STATUS_PENDING {
