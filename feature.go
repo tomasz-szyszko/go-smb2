@@ -7,8 +7,7 @@ import (
 // client
 
 const (
-	clientCapabilities             = smb2.SMB2_GLOBAL_CAP_LARGE_MTU | smb2.SMB2_GLOBAL_CAP_ENCRYPTION
-	clientCapabilitiesNoEncryption = smb2.SMB2_GLOBAL_CAP_LARGE_MTU
+	clientCapabilities = smb2.SMB2_GLOBAL_CAP_LARGE_MTU | smb2.SMB2_GLOBAL_CAP_ENCRYPTION
 )
 
 var (
