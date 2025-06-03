@@ -102,14 +102,14 @@ func (d *Dialer) DialConn(ctx context.Context, tcpConn net.Conn, address string)
 		return nil, err
 	}
 
-	logger.Info("SMB Connection negotiated", "address", address, "maxCreditBalance", maxCreditBalance, "capabilities", conn.capabilities,
+	logger.Debug("SMB Connection negotiated", "address", address, "maxCreditBalance", maxCreditBalance, "capabilities", conn.capabilities,
 		"maxTransactSize", conn.maxTransactSize, "maxReadSize", conn.maxReadSize, "maxWriteSize", conn.maxWriteSize, "dialect", conn.dialect, "requireSigning", conn.requireSigning)
 	s, err := sessionSetup(conn, d.Initiator, ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("SMB Session estabilished", "address", address, "sessionFlags", s.sessionFlags)
+	logger.Debug("SMB Session estabilished", "address", address, "sessionFlags", s.sessionFlags)
 	return &Session{s: s, ctx: context.Background(), addr: tcpConn.RemoteAddr().String(), host: address}, nil
 }
 
@@ -202,7 +202,7 @@ func (c *Session) Mount(sharename string, opts ...MountOption) (*Share, error) {
 		return nil, err
 	}
 
-	logger.Info("SMB Share mounted", "sharename", sharename, "treeId", tc.treeId, "shareFlags", tc.shareFlags)
+	logger.Debug("SMB Share mounted", "sharename", sharename, "treeId", tc.treeId, "shareFlags", tc.shareFlags)
 	return &Share{treeConn: tc, ctx: context.Background(), mapping: options.mapping}, nil
 }
 

@@ -491,13 +491,13 @@ func (conn *conn) processReadPacket(pkt []byte) {
 	if hasSession {
 		pkt, e, isEncrypted = conn.tryDecrypt(pkt)
 		if e != nil {
-			logger.Info("Failed to decrypt packet", "err", e)
+			logger.Debug("Failed to decrypt packet", "err", e)
 			return
 		}
 
 		p := smb2.PacketCodec(pkt)
 		if p.IsInvalid() {
-			logger.Info("Packet is invalid", "err", &InvalidResponseError{"broken packet header format"})
+			logger.Debug("Packet is invalid", "err", &InvalidResponseError{"broken packet header format"})
 			return
 		}
 
@@ -513,7 +513,7 @@ func (conn *conn) processReadPacket(pkt []byte) {
 	for {
 		p := smb2.PacketCodec(pkt)
 		if p.IsInvalid() {
-			logger.Info("Packet is invalid 2", "err", &InvalidResponseError{"broken packet header format"})
+			logger.Debug("Packet is invalid 2", "err", &InvalidResponseError{"broken packet header format"})
 			break
 		}
 
@@ -525,7 +525,7 @@ func (conn *conn) processReadPacket(pkt []byte) {
 
 		p = smb2.PacketCodec(pkt)
 		if p.IsInvalid() {
-			logger.Info("Packet from command is invalid", "err", &InvalidResponseError{"broken packet header format"})
+			logger.Debug("Packet from command is invalid", "err", &InvalidResponseError{"broken packet header format"})
 			break
 		}
 
@@ -535,7 +535,7 @@ func (conn *conn) processReadPacket(pkt []byte) {
 
 		e = conn.tryHandle(pkt, e)
 		if e != nil {
-			logger.Info("Couldn't handle packet", "err", e)
+			logger.Debug("Couldn't handle packet", "err", e)
 		}
 
 		if next == nil {

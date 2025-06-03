@@ -18,7 +18,7 @@ import (
 
 var zero [16]byte
 var be = binary.BigEndian
-var logger *slog.Logger
+var logger *slog.Logger = slog.Default()
 
 func SetLogger(log *slog.Logger) {
 	logger = log
