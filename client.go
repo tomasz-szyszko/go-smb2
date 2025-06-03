@@ -102,11 +102,14 @@ func (d *Dialer) DialConn(ctx context.Context, tcpConn net.Conn, address string)
 		return nil, err
 	}
 
+	logger.Info("SMB Connection negotiated", "address", address, "maxCreditBalance", maxCreditBalance, "capabilities", conn.capabilities,
+		"maxTransactSize", conn.maxTransactSize, "maxReadSize", conn.maxReadSize, "maxWriteSize", conn.maxWriteSize, "dialect", conn.dialect, "requireSigning", conn.requireSigning)
 	s, err := sessionSetup(conn, d.Initiator, ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	logger.Info("SMB Session estabilished", "address", address, "sessionFlags", s.sessionFlags)
 	return &Session{s: s, ctx: context.Background(), addr: tcpConn.RemoteAddr().String(), host: address}, nil
 }
 
@@ -1361,7 +1364,7 @@ func (f *File) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-const winMaxPayloadSize = 64 * 1024
+const winMaxPayloadSize = 8 * 1024 * 1024
 const singleCreditMaxPayloadSize = 64 * 1024
 
 func (f *File) maxReadSize() int {
@@ -2043,12 +2046,9 @@ func (f *File) ReadFrom(r io.Reader) (n int64, err error) {
 		if supported, n, err := rf.copyTo(f); supported {
 			return n, err
 		}
-
-		maxBufferSize := min(f.maxReadSize(), f.maxWriteSize())
-		return copyBuffer(r, f, make([]byte, maxBufferSize))
 	}
 
-	return copyBuffer(r, f, make([]byte, f.maxWriteSize()))
+	return copyBuffer(r, f, make([]byte, singleCreditMaxPayloadSize))
 }
 
 // WriteTo implements io.WriteTo.
@@ -2059,12 +2059,9 @@ func (f *File) WriteTo(w io.Writer) (n int64, err error) {
 		if supported, n, err := f.copyTo(wf); supported {
 			return n, err
 		}
-
-		maxBufferSize := min(f.maxReadSize(), f.maxWriteSize())
-		return copyBuffer(f, w, make([]byte, maxBufferSize))
 	}
 
-	return copyBuffer(f, w, make([]byte, f.maxReadSize()))
+	return copyBuffer(f, w, make([]byte, singleCreditMaxPayloadSize))
 }
 
 func (f *File) WriteString(s string) (n int, err error) {

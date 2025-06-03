@@ -501,19 +501,19 @@ func (conn *conn) processReadPacket(pkt []byte) {
 	if hasSession {
 		pkt, e, isEncrypted = conn.tryDecrypt(pkt)
 		if e != nil {
-			logger.Println("skip:", e)
+			logger.Info("Failed to decrypt packet", "err", e)
 			return
 		}
 
 		p := smb2.PacketCodec(pkt)
 		if p.IsInvalid() {
-			logger.Println("skip:", &InvalidResponseError{"broken packet header format"})
+			logger.Info("Packet is invalid", "err", &InvalidResponseError{"broken packet header format"})
 			return
 		}
 
 		if s := conn.session; s != nil {
 			if s.sessionId != p.SessionId() {
-				logger.Println("skip:", &InvalidResponseError{"unknown session id"})
+				logger.Error("Session Id mismatch", "err", &InvalidResponseError{"unknown session id"})
 				return
 			}
 		}
@@ -523,7 +523,7 @@ func (conn *conn) processReadPacket(pkt []byte) {
 	for {
 		p := smb2.PacketCodec(pkt)
 		if p.IsInvalid() {
-			logger.Println("skip:", &InvalidResponseError{"broken packet header format"})
+			logger.Info("Packet is invalid 2", "err", &InvalidResponseError{"broken packet header format"})
 			break
 		}
 
@@ -535,7 +535,7 @@ func (conn *conn) processReadPacket(pkt []byte) {
 
 		p = smb2.PacketCodec(pkt)
 		if p.IsInvalid() {
-			logger.Println("skip:", &InvalidResponseError{"broken packet header format"})
+			logger.Info("Packet from command is invalid", "err", &InvalidResponseError{"broken packet header format"})
 			break
 		}
 
@@ -545,7 +545,7 @@ func (conn *conn) processReadPacket(pkt []byte) {
 
 		e = conn.tryHandle(pkt, e)
 		if e != nil {
-			logger.Println("skip:", e)
+			logger.Info("Couldn't handle packet", "err", e)
 		}
 
 		if next == nil {
@@ -575,7 +575,7 @@ func (conn *conn) runReciever() {
 	case <-conn.rdone:
 		channelError = &InternalError{"connection closed"}
 	default:
-		logger.Println("error:", channelError)
+		logger.Error("Smb Receiver error", "err", channelError)
 	}
 
 	conn.m.Lock()
