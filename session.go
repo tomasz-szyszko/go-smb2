@@ -162,7 +162,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.encrypter, err = ccm.NewCCM(ciph, 16, 12)
+			s.encrypter, err = ccm.NewCCM(ciph, 16, 11)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
@@ -171,7 +171,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
-			s.decrypter, err = ccm.NewCCM(ciph, 16, 12)
+			s.decrypter, err = ccm.NewCCM(ciph, 16, 11)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
 			}
@@ -213,7 +213,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
-				s.encrypter, err = ccm.NewCCM(ciph, 16, 12)
+				s.encrypter, err = ccm.NewCCM(ciph, 16, 11)
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
@@ -222,7 +222,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
-				s.decrypter, err = ccm.NewCCM(ciph, 16, 12)
+				s.decrypter, err = ccm.NewCCM(ciph, 16, 11)
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
