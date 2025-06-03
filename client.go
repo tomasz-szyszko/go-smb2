@@ -202,6 +202,7 @@ func (c *Session) Mount(sharename string, opts ...MountOption) (*Share, error) {
 		return nil, err
 	}
 
+	logger.Info("SMB Share mounted", "sharename", sharename, "treeId", tc.treeId, "shareFlags", tc.shareFlags)
 	return &Share{treeConn: tc, ctx: context.Background(), mapping: options.mapping}, nil
 }
 
