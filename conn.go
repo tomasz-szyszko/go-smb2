@@ -131,9 +131,9 @@ retry:
 		return nil, &InvalidResponseError{"unexpected dialect returned"}
 	}
 
-	conn.requireSigning = n.RequireMessageSigning || r.SecurityMode()&smb2.SMB2_NEGOTIATE_SIGNING_REQUIRED != 0
-	conn.capabilities = clientCapabilities & r.Capabilities()
 	conn.dialect = r.DialectRevision()
+	conn.requireSigning = n.RequireMessageSigning || r.SecurityMode()&smb2.SMB2_NEGOTIATE_SIGNING_REQUIRED != 0 || conn.dialect >= smb2.SMB311
+	conn.capabilities = clientCapabilities & r.Capabilities()
 	conn.maxTransactSize = r.MaxTransactSize()
 	conn.maxReadSize = r.MaxReadSize()
 	conn.maxWriteSize = r.MaxWriteSize()
